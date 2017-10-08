@@ -1,0 +1,6 @@
+[package]
+name = "chip8-interpreter"
+version = "0.1.0"
+authors = ["Nick Martinez <habbarazzer@gmail.com>"]
+
+[dependencies]
