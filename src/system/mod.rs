@@ -2,6 +2,7 @@ const NUM_BYTES: usize = 4096;
 const NUM_REGISTERS: usize = 16;
 const STACK_SIZE: usize = 48;
 
+#[allow(dead_code)]
 pub struct System {
     memory: [u8; NUM_BYTES],
     registers: [u8; NUM_REGISTERS],
@@ -11,6 +12,7 @@ pub struct System {
     sp: u8
 }
 
+#[allow(dead_code)]
 impl System{
     pub fn new() -> Self {
         System {
@@ -23,8 +25,11 @@ impl System{
         }
     }
 
-    pub fn read_word(&self, address: usize) -> &[u8] {
-        &self.memory[address..address + 2]
+    /** Index into system memory at address and return word located there. */
+    pub fn read_word(&self, address: usize) -> u16 {
+        let left = self.memory[address] as u16;
+        let right = self.memory[address + 1] as u16;
+        (left << 8) | right
     }
 }
 
@@ -47,8 +52,8 @@ mod tests {
     fn read_word() {
         let mut system = System::new();
         load_test_data(&mut system);
-        assert_eq!([0xAF, 0x7F], system.read_word(0));
-        assert_eq!([0x77, 0x88], system.read_word(NUM_BYTES / 2));
-        assert_eq!([0x3A, 0x01], system.read_word(NUM_BYTES - 2));
+        assert_eq!(0xAF7F, system.read_word(0));
+        assert_eq!(0x7788, system.read_word(NUM_BYTES / 2));
+        assert_eq!(0x3A01, system.read_word(NUM_BYTES - 2));
     }
 }
