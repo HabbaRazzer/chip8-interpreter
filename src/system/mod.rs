@@ -38,7 +38,7 @@ impl System{
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     /** Load some test data into the system memory for the purposes of testing. */
     fn load_test_data(system: &mut System) {
         system.memory[0] = 0xAF;
@@ -47,7 +47,6 @@ mod tests {
         system.memory[NUM_BYTES / 2 + 1] = 0x88;
         system.memory[NUM_BYTES - 2] = 0x3A;
         system.memory[NUM_BYTES - 1] = 0x01;
-        let array = array!(10; [1, 2, 3]);
     }
 
     /** Read a word (two bytes) from the system memory. */
