@@ -50,6 +50,18 @@ impl System{
                 let value = (opcode & VALUE_MASK) as u8;
                 self.registers[register] = self.registers[register].wrapping_add(value);
             },
+            0x8000...0x9000 => {
+                match opcode & 0b0000_0000_0000_1111 {
+                    0x0 => {    // 0x8XY0 : VX = VY
+                        let left = ((opcode & 0b0000_1111_0000_0000) >> 8) as usize;
+                        let right = ((opcode & 0b0000_0000_1111_0000) >> 4) as usize;
+                        self.registers[left] = self.registers[right];
+                    },
+                    _ => {
+                        eprintln!("Unrecognized instruction!");
+                    }
+                }
+            }
             _ => {
                 eprintln!("Unrecognized instruction!");
             }
@@ -126,12 +138,29 @@ mod tests {
         system.execute(0x6015);
         system.execute(0x7015);
         assert_eq!(0x2A, system.registers[0]);
+
         system.execute(0x6A42);
         system.execute(0x7A42);
         assert_eq!(0x84, system.registers[0xA]);
+
         system.execute(0x6EFF);
         system.execute(0x7E01);
         // registers should overlow appropriately
         assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY0 should copy the value from register VY into register VX. */
+    #[test]
+    fn copy_register() {
+        let mut system = System::new();
+        system.execute(0x6A42);
+        system.execute(0x8EA0);
+        assert_eq!(0x42, system.registers[0xA]);
+        assert_eq!(0x42, system.registers[0xE]);
+
+        system.execute(0x67DE);
+        system.execute(0x8F70);
+        assert_eq!(0xDE, system.registers[0x7]);
+        assert_eq!(0xDE, system.registers[0xF]);
     }
 }
