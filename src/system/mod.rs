@@ -40,9 +40,15 @@ impl System{
     /** Execute the instruction. */
     pub fn execute(&mut self, opcode: u16) {
         match opcode {
-            0x6000...0x7000 => {
-                self.registers[((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize] =
-                    (opcode & VALUE_MASK) as u8;
+            0x6000...0x7000 => {    // 0x6XNN : VX = NN
+                let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
+                let value = (opcode & VALUE_MASK) as u8;
+                self.registers[register] = value;
+            },
+            0x7000...0x8000 => {    // 0x7XNN : VX = VX + NN
+                let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
+                let value = (opcode & VALUE_MASK) as u8;
+                self.registers[register] = self.registers[register].wrapping_add(value);
             },
             _ => {
                 eprintln!("Unrecognized instruction!");
@@ -111,5 +117,21 @@ mod tests {
         assert_eq!(0x85, system.registers[0xE]);
         system.execute(0x6F90);
         assert_eq!(0x90, system.registers[0xF]);
+    }
+
+    /** The opcode 0x7XNN should add the constant NN into register VX. */
+    #[test]
+    fn add_constant() {
+        let mut system = System::new();
+        system.execute(0x6015);
+        system.execute(0x7015);
+        assert_eq!(0x2A, system.registers[0]);
+        system.execute(0x6A42);
+        system.execute(0x7A42);
+        assert_eq!(0x84, system.registers[0xA]);
+        system.execute(0x6EFF);
+        system.execute(0x7E01);
+        // registers should overlow appropriately
+        assert_eq!(0x00, system.registers[0xE]);
     }
 }
