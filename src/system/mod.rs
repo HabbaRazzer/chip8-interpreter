@@ -7,6 +7,10 @@ const STACK_SIZE: usize = 48;
 const VALUE_MASK: u16 = 0b0000_0000_1111_1111;
 const REGISTER_ADDRESS_MASK: u16 = 0b0000_1111_0000_0000;
 
+const TYPE_MASK: u16 = 0b0000_0000_0000_1111;
+const LEFT_MASK: u16 = 0b0000_1111_0000_0000;
+const RIGHT_MASK: u16 = 0b0000_0000_1111_0000;
+
 #[allow(dead_code)]
 pub struct System {
     memory: [u8; NUM_BYTES],
@@ -51,11 +55,14 @@ impl System{
                 self.registers[register] = self.registers[register].wrapping_add(value);
             },
             0x8000...0x9000 => {
-                match opcode & 0b0000_0000_0000_1111 {
+                let left = ((opcode & LEFT_MASK) >> 8) as usize;
+                let right = ((opcode & RIGHT_MASK) >> 4) as usize;
+                match opcode & TYPE_MASK {
                     0x0 => {    // 0x8XY0 : VX = VY
-                        let left = ((opcode & 0b0000_1111_0000_0000) >> 8) as usize;
-                        let right = ((opcode & 0b0000_0000_1111_0000) >> 4) as usize;
                         self.registers[left] = self.registers[right];
+                    },
+                    0x1 => {    // 0x8XY1 : VX = VX | VY
+                        self.registers[left] |= self.registers[right];
                     },
                     _ => {
                         eprintln!("Unrecognized instruction!");
@@ -83,6 +90,18 @@ mod tests {
         system.memory[NUM_BYTES - 1] = 0x01;
     }
 
+    /** Set some registers for the purposes of testing. */
+    fn set_registers_for_test(system: &mut System) {
+        system.execute(0x6064);
+        system.execute(0x6127);
+        system.execute(0x6212);
+        system.execute(0x63AE);
+        system.execute(0x64FF);
+        system.execute(0x65B4);
+        system.execute(0x6642);
+        system.execute(0x6F25);
+    }
+
     /** Read a word (two bytes) from the system memory. */
     #[test]
     fn read_word() {
@@ -97,36 +116,52 @@ mod tests {
     #[test]
     fn load_constant() {
         let mut system = System::new();
+
         system.execute(0x6015);
-        assert_eq!(0x15, system.registers[0]);
+        assert_eq!(0x15, system.registers[0x0]);
+
         system.execute(0x6120);
-        assert_eq!(0x20, system.registers[1]);
+        assert_eq!(0x20, system.registers[0x1]);
+
         system.execute(0x6225);
-        assert_eq!(0x25, system.registers[2]);
+        assert_eq!(0x25, system.registers[0x2]);
+
         system.execute(0x6330);
-        assert_eq!(0x30, system.registers[3]);
+        assert_eq!(0x30, system.registers[0x3]);
+
         system.execute(0x6435);
-        assert_eq!(0x35, system.registers[4]);
+        assert_eq!(0x35, system.registers[0x4]);
+
         system.execute(0x6540);
-        assert_eq!(0x40, system.registers[5]);
+        assert_eq!(0x40, system.registers[0x5]);
+
         system.execute(0x6645);
-        assert_eq!(0x45, system.registers[6]);
+        assert_eq!(0x45, system.registers[0x6]);
+
         system.execute(0x6750);
-        assert_eq!(0x50, system.registers[7]);
+        assert_eq!(0x50, system.registers[0x7]);
+
         system.execute(0x6855);
-        assert_eq!(0x55, system.registers[8]);
+        assert_eq!(0x55, system.registers[0x8]);
+
         system.execute(0x6960);
-        assert_eq!(0x60, system.registers[9]);
+        assert_eq!(0x60, system.registers[0x9]);
+
         system.execute(0x6A65);
         assert_eq!(0x65, system.registers[0xA]);
+
         system.execute(0x6B70);
         assert_eq!(0x70, system.registers[0xB]);
+
         system.execute(0x6C75);
         assert_eq!(0x75, system.registers[0xC]);
+
         system.execute(0x6D80);
         assert_eq!(0x80, system.registers[0xD]);
+
         system.execute(0x6E85);
         assert_eq!(0x85, system.registers[0xE]);
+
         system.execute(0x6F90);
         assert_eq!(0x90, system.registers[0xF]);
     }
@@ -135,9 +170,10 @@ mod tests {
     #[test]
     fn add_constant() {
         let mut system = System::new();
+
         system.execute(0x6015);
         system.execute(0x7015);
-        assert_eq!(0x2A, system.registers[0]);
+        assert_eq!(0x2A, system.registers[0x0]);
 
         system.execute(0x6A42);
         system.execute(0x7A42);
@@ -153,6 +189,7 @@ mod tests {
     #[test]
     fn copy_register() {
         let mut system = System::new();
+
         system.execute(0x6A42);
         system.execute(0x8EA0);
         assert_eq!(0x42, system.registers[0xA]);
@@ -162,5 +199,24 @@ mod tests {
         system.execute(0x8F70);
         assert_eq!(0xDE, system.registers[0x7]);
         assert_eq!(0xDE, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XY1 should set register VX to the value (VX OR VY). */
+    #[test]
+    fn oring_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        system.execute(0x8011);
+        assert_eq!(0x67, system.registers[0x0]);
+        assert_eq!(0x27, system.registers[0x1]);
+
+        system.execute(0x8231);
+        assert_eq!(0xBE, system.registers[0x2]);
+        assert_eq!(0xAE, system.registers[0x3]);
+
+        system.execute(0x8FE1);
+        assert_eq!(0x25, system.registers[0xF]);
+        assert_eq!(0x00, system.registers[0xE]);
     }
 }
