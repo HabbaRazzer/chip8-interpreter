@@ -64,6 +64,12 @@ impl System{
                     0x1 => {    // 0x8XY1 : VX = VX | VY
                         self.registers[left] |= self.registers[right];
                     },
+                    0x2 => {    // 0x8XY2 : VX = VX & VY
+                        self.registers[left] &= self.registers[right];
+                    },
+                    0x3 => {    // 0x8XY2 : VX = VX ^ VY
+                        self.registers[left] ^= self.registers[right];
+                    },
                     _ => {
                         eprintln!("Unrecognized instruction!");
                     }
@@ -216,6 +222,44 @@ mod tests {
         assert_eq!(0xAE, system.registers[0x3]);
 
         system.execute(0x8FE1);
+        assert_eq!(0x25, system.registers[0xF]);
+        assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY2 should set register VX to the value (VX AND VY). */
+    #[test]
+    fn anding_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        system.execute(0x8012);
+        assert_eq!(0x24, system.registers[0x0]);
+        assert_eq!(0x27, system.registers[0x1]);
+
+        system.execute(0x8232);
+        assert_eq!(0x02, system.registers[0x2]);
+        assert_eq!(0xAE, system.registers[0x3]);
+
+        system.execute(0x8FE2);
+        assert_eq!(0x00, system.registers[0xF]);
+        assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY3 should set register VX to the value (VX XOR VY). */
+    #[test]
+    fn xoring_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        system.execute(0x8013);
+        assert_eq!(0x43, system.registers[0x0]);
+        assert_eq!(0x27, system.registers[0x1]);
+
+        system.execute(0x8233);
+        assert_eq!(0xBC, system.registers[0x2]);
+        assert_eq!(0xAE, system.registers[0x3]);
+
+        system.execute(0x8FE3);
         assert_eq!(0x25, system.registers[0xF]);
         assert_eq!(0x00, system.registers[0xE]);
     }
