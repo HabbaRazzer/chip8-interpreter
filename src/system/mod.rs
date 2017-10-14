@@ -84,6 +84,8 @@ impl System{
                         self.registers[left] = value;
                         if overflow {
                             self.registers[0xF] = 0x1;
+                        } else {
+                            self.registers[0xF] = 0x0;
                         }
                     },
 
@@ -93,7 +95,15 @@ impl System{
                         self.registers[left] = value;
                         if overflow {
                             self.registers[0xF] = 0x1;
+                        } else {
+                            self.registers[0xF] = 0x0;
                         }
+                    },
+
+                    0x6 => {    // 0x8XY6 : VX = VY >> 1
+                        let least_bit = self.registers[right] & 0x1;
+                        self.registers[left] = self.registers[right] >> 1;
+                        self.registers[0xF] = least_bit;
                     },
 
                     0x7 => {    // 0x8XY7 : VY = VY - VX
@@ -102,7 +112,15 @@ impl System{
                         self.registers[right] = value;
                         if overflow {
                             self.registers[0xF] = 0x1;
+                        } else {
+                            self.registers[0xF] = 0x0;
                         }
+                    },
+
+                    0xE => {    // 0x8XYE : VX = VY << 1
+                        let most_bit = self.registers[right] >> 7;
+                        self.registers[left] = self.registers[right] << 1;
+                        self.registers[0xF] = most_bit;
                     },
 
                     _ => {
@@ -306,7 +324,6 @@ mod tests {
     fn add_register_with_carry() {
         let mut system = System::new();
         set_registers_for_test(&mut system);
-        system.execute(0x6F00);
 
         system.execute(0x8014);
         assert_eq!(0x8B, system.registers[0x0]);
@@ -329,7 +346,6 @@ mod tests {
     fn sub_register_with_borrow_right_subtrahend() {
         let mut system = System::new();
         set_registers_for_test(&mut system);
-        system.execute(0x6F00);
 
         system.execute(0x8125);
         assert_eq!(0x15, system.registers[0x1]);
@@ -347,13 +363,32 @@ mod tests {
         assert_eq!(0x01, system.registers[0xF]);
     }
 
+    /** The opcode 0x8XY6 should store the value stored in register VY right shifted by 1 bit
+    *     in register VX. Register VF should be set to the least significant bit. */
+    #[test]
+    fn rshift_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        system.execute(0x8016);
+        assert_eq!(0x13, system.registers[0x0]);
+        assert_eq!(0x01, system.registers[0xF]);
+
+        system.execute(0x8236);
+        assert_eq!(0x57, system.registers[0x2]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x8446);
+        assert_eq!(0x7F, system.registers[0x4]);
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
     /** The opcode 0x8XY7 should subtract register VX from register VY
-      * If a borrow occurs, set register VF to 01. */
+      *     If a borrow occurs, set register VF to 01. */
     #[test]
     fn sub_register_with_borrow_left_subtrahend() {
         let mut system = System::new();
         set_registers_for_test(&mut system);
-        system.execute(0x6F00);
 
         system.execute(0x8217);
         assert_eq!(0x15, system.registers[0x1]);
@@ -368,6 +403,26 @@ mod tests {
         assert_eq!(0xFF, system.registers[0xB]);
         // note - a borrow occurs here because subtrahend > minuend,
             // therefore register VF should be set to 0x01
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XYE should store the value stored in register VY left shifted by 1 bit
+      *     in register VX. Register VF should be set to the most significant bit. */
+    #[test]
+    fn lshift_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        system.execute(0x801E);
+        assert_eq!(0x4E, system.registers[0x0]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x823E);
+        assert_eq!(0x5C, system.registers[0x2]);
+        assert_eq!(0x01, system.registers[0xF]);
+
+        system.execute(0x844E);
+        assert_eq!(0xFE, system.registers[0x4]);
         assert_eq!(0x01, system.registers[0xF]);
     }
 }
