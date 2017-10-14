@@ -44,37 +44,73 @@ impl System{
     /** Execute the instruction. */
     pub fn execute(&mut self, opcode: u16) {
         match opcode {
+
             0x6000...0x7000 => {    // 0x6XNN : VX = NN
                 let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
                 let value = (opcode & VALUE_MASK) as u8;
                 self.registers[register] = value;
             },
+
             0x7000...0x8000 => {    // 0x7XNN : VX = VX + NN
                 let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
                 let value = (opcode & VALUE_MASK) as u8;
                 self.registers[register] = self.registers[register].wrapping_add(value);
             },
+
             0x8000...0x9000 => {
                 let left = ((opcode & LEFT_MASK) >> 8) as usize;
                 let right = ((opcode & RIGHT_MASK) >> 4) as usize;
                 match opcode & TYPE_MASK {
+
                     0x0 => {    // 0x8XY0 : VX = VY
                         self.registers[left] = self.registers[right];
                     },
+
                     0x1 => {    // 0x8XY1 : VX = VX | VY
                         self.registers[left] |= self.registers[right];
                     },
+
                     0x2 => {    // 0x8XY2 : VX = VX & VY
                         self.registers[left] &= self.registers[right];
                     },
-                    0x3 => {    // 0x8XY2 : VX = VX ^ VY
+
+                    0x3 => {    // 0x8XY3 : VX = VX ^ VY
                         self.registers[left] ^= self.registers[right];
                     },
+
+                    0x4 => {    // 0x8XY4 : VX = VX + VY
+                        let (value, overflow) =
+                            self.registers[left].overflowing_add(self.registers[right]);
+                        self.registers[left] = value;
+                        if overflow {
+                            self.registers[0xF] = 0x1;
+                        }
+                    },
+
+                    0x5 => {    // 0x8XY5 : VX = VX - VY
+                        let (value, overflow) =
+                            self.registers[left].overflowing_sub(self.registers[right]);
+                        self.registers[left] = value;
+                        if overflow {
+                            self.registers[0xF] = 0x1;
+                        }
+                    },
+
+                    0x7 => {    // 0x8XY7 : VY = VY - VX
+                        let (value, overflow) =
+                            self.registers[right].overflowing_sub(self.registers[left]);
+                        self.registers[right] = value;
+                        if overflow {
+                            self.registers[0xF] = 0x1;
+                        }
+                    },
+
                     _ => {
                         eprintln!("Unrecognized instruction!");
                     }
                 }
             }
+
             _ => {
                 eprintln!("Unrecognized instruction!");
             }
@@ -262,5 +298,76 @@ mod tests {
         system.execute(0x8FE3);
         assert_eq!(0x25, system.registers[0xF]);
         assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY4 should add register VY to register VX
+      * If a carry occurs, set register VF to 01. */
+    #[test]
+    fn add_register_with_carry() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+        system.execute(0x6F00);
+
+        system.execute(0x8014);
+        assert_eq!(0x8B, system.registers[0x0]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x8234);
+        assert_eq!(0xC0, system.registers[0x2]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x6502);
+        system.execute(0x8454);
+        assert_eq!(0x01, system.registers[0x4]);
+        // overflow has occured - register VF should be set to 0x01
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XY5 should subtract register VY from register VX
+      * If a borrow occurs, set register VF to 01. */
+    #[test]
+    fn sub_register_with_borrow_right_subtrahend() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+        system.execute(0x6F00);
+
+        system.execute(0x8125);
+        assert_eq!(0x15, system.registers[0x1]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x8455);
+        assert_eq!(0x4B, system.registers[0x4]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x6501);
+        system.execute(0x8B55);
+        assert_eq!(0xFF, system.registers[0xB]);
+        // note - a borrow occurs here because subtrahend > minuend,
+            // therefore register VF should be set to 0x01
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XY7 should subtract register VX from register VY
+      * If a borrow occurs, set register VF to 01. */
+    #[test]
+    fn sub_register_with_borrow_left_subtrahend() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+        system.execute(0x6F00);
+
+        system.execute(0x8217);
+        assert_eq!(0x15, system.registers[0x1]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x8547);
+        assert_eq!(0x4B, system.registers[0x4]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        system.execute(0x6501);
+        system.execute(0x85B7);
+        assert_eq!(0xFF, system.registers[0xB]);
+        // note - a borrow occurs here because subtrahend > minuend,
+            // therefore register VF should be set to 0x01
+        assert_eq!(0x01, system.registers[0xF]);
     }
 }
