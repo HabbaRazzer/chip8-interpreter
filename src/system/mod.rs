@@ -1,3 +1,5 @@
+extern crate rand;
+
 mod macros;
 
 const NUM_BYTES: usize = 4096;
@@ -11,6 +13,7 @@ const TYPE_MASK: u16 = 0b0000_0000_0000_1111;
 const LEFT_MASK: u16 = 0b0000_1111_0000_0000;
 const RIGHT_MASK: u16 = 0b0000_0000_1111_0000;
 
+
 #[allow(dead_code)]
 pub struct System {
     memory: [u8; NUM_BYTES],
@@ -18,7 +21,7 @@ pub struct System {
     pc: u16,
     index: u16,
     stack: [u8; STACK_SIZE],
-    sp: u8
+    sp: u8,
 }
 
 #[allow(dead_code)]
@@ -30,7 +33,7 @@ impl System{
             pc: 0,
             index: 0,
             stack: [0; STACK_SIZE],
-            sp: 0
+            sp: 0,
         }
     }
 
@@ -127,13 +130,24 @@ impl System{
                         eprintln!("Unrecognized instruction!");
                     }
                 }
-            }
+            },
+
+            0xC000...0xD000 => {    // 0xCXNN : VX = (random) & NN
+                let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
+                let value = (opcode & VALUE_MASK) as u8;
+                self.registers[register] = generate_random() & value;
+            },
 
             _ => {
                 eprintln!("Unrecognized instruction!");
             }
         }
     }
+}
+
+/** Return a randomly generated 8 bit integer. */
+pub fn generate_random() -> u8 {
+    rand::random()
 }
 
 #[cfg(test)]
@@ -424,5 +438,13 @@ mod tests {
         system.execute(0x844E);
         assert_eq!(0xFE, system.registers[0x4]);
         assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0xCXNN should generate a random number, mask it with NN and store it in
+      *     register VX. */
+    #[test]
+    #[ignore]
+    fn random_register() {
+        // TODO
     }
 }
