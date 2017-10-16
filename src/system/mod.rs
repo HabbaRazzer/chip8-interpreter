@@ -1,3 +1,7 @@
+use std::io::BufReader;
+use std::fs::File;
+use std::io::prelude::*;
+
 mod macros;
 extern crate rand;
 
@@ -17,7 +21,7 @@ const RIGHT_MASK: Word = 0b0000_0000_1111_0000;
 
 #[allow(dead_code)]
 pub struct System {
-    memory: [Byte; NUM_BYTES],
+    memory: Vec<Byte>,
     registers: [Byte; NUM_REGISTERS],
     pc: Word,
     index: Word,
@@ -29,13 +33,33 @@ pub struct System {
 impl System{
     pub fn new() -> Self {
         System {
-            memory: [0; NUM_BYTES],
+            memory: vec![0; NUM_BYTES],
             registers: [0; NUM_REGISTERS],
             pc: 0,
             index: 0,
             stack: [0; STACK_SIZE],
             sp: 0,
         }
+    }
+
+    pub fn from_rom(rom: &str) -> Self {
+        let mut system = System {
+            memory: vec![0; NUM_BYTES],
+            registers: [0; NUM_REGISTERS],
+            pc: 0,
+            index: 0,
+            stack: [0; STACK_SIZE],
+            sp: 0,
+        };
+
+        let mut handle = File::open(rom).expect("File not found!");
+        let mut buffer: Vec<Byte> = Vec::new();
+        handle.read_to_end(&mut buffer).unwrap();
+        for i in 0..buffer.len() {
+            system.memory[0x200 + i] = buffer[i];
+        };
+
+        system
     }
 
     /** Index into system memory at address and return word located there. */
