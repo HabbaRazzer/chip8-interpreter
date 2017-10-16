@@ -1,9 +1,10 @@
 extern crate rand;
 
-use system::{System, Word, Byte, RegisterAddress};
+use system::{System, Word, Byte, RegisterAddress, Address};
 
 const VALUE_MASK: Word = 0b0000_0000_1111_1111;
 const REGISTER_MASK: Word = 0b0000_1111_0000_0000;
+const ADDRESS_MASK: Word = 0b0000_1111_1111_1111;
 
 const TYPE_MASK: Word = 0b0000_0000_0000_1111;
 const LEFT_MASK: Word = 0b0000_1111_0000_0000;
@@ -11,6 +12,8 @@ const RIGHT_MASK: Word = 0b0000_0000_1111_0000;
 
 #[allow(dead_code)]
 enum OpCode {
+	JumpAddress(Address),
+	JumpAddressOffset(Address),
 	SetValue(RegisterAddress, Byte),
 	AddValue(RegisterAddress, Byte),
 	SetRegister(RegisterAddress, RegisterAddress),
@@ -30,6 +33,14 @@ enum OpCode {
 impl OpCode {
 	fn execute(&self, system: &mut System) {
 		match self {
+			&OpCode::JumpAddress(address) => {
+				system.pc = address;
+			},
+
+			&OpCode::JumpAddressOffset(address) => {
+				system.pc = address + system.registers[0x0] as Word;
+			},
+
 			&OpCode::SetValue(register, value) => {
 				system.registers[register] = value;
 			},
@@ -117,6 +128,10 @@ impl From<Word> for OpCode {
 		let value = (word & VALUE_MASK) as Byte;
 
 		match word {
+			0x1000...0x2000 => {
+				OpCode::JumpAddress(word & ADDRESS_MASK)
+			},
+
 			0x6000...0x7000 => {
 				OpCode::SetValue(register, value)
 			},
@@ -169,6 +184,10 @@ impl From<Word> for OpCode {
 						OpCode::Unknown
 					}
 				}
+			},
+
+			0xB000...0xC000 => {
+				OpCode::JumpAddressOffset(word & ADDRESS_MASK)
 			},
 
 			0xC000...0xD000 => {
@@ -459,4 +478,24 @@ mod tests {
     fn random_register() {
         // TODO
     }
+
+	/** The opcode 0x1NNN instructs the interpreter to jump to address NNN. */
+	#[test]
+	fn jump_address() {
+		let mut system = System::new();
+
+		OpCode::from(0x12AE).execute(&mut system);
+		assert_eq!(0x2AE, system.pc);
+	}
+
+	/** The opcode 0xBNNN instructs the interpreter to jump to address NNN with an offset
+	  * 	specified in register V0. */
+	#[test]
+	fn jump_address_with_offset() {
+		let mut system = System::new();
+		OpCode::from(0x6064).execute(&mut system);
+
+		OpCode::from(0xB2AE).execute(&mut system);
+		assert_eq!(0x312, system.pc);
+	}
 }

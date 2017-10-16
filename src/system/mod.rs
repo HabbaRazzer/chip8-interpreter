@@ -1,7 +1,10 @@
 mod opcode;
+use std::fs::File;
+use std::io::prelude::*;
 
 pub type Word = u16;
 pub type Byte = u8;
+pub type Address = u16;
 pub type RegisterAddress = usize;
 
 const NUM_BYTES: usize = 4096;
@@ -31,7 +34,7 @@ impl System{
         }
     }
 
-    pub fn from_rom(rom: &str) -> Self {
+    pub fn from_rom(path: &str) -> Self {
         let mut system = System {
             memory: vec![0; NUM_BYTES],
             registers: [0; NUM_REGISTERS],
@@ -41,7 +44,7 @@ impl System{
             sp: 0,
         };
 
-        let mut handle = File::open(rom).expect("File not found!");
+        let mut handle = File::open(path).expect("File not found!");
         let mut buffer: Vec<Byte> = Vec::new();
         handle.read_to_end(&mut buffer).unwrap();
         for i in 0..buffer.len() {
