@@ -1,25 +1,25 @@
+mod macros;
 extern crate rand;
 
-mod macros;
+pub type Word = u16;
 
 const NUM_BYTES: usize = 4096;
 const NUM_REGISTERS: usize = 16;
 const STACK_SIZE: usize = 48;
 
-const VALUE_MASK: u16 = 0b0000_0000_1111_1111;
-const REGISTER_ADDRESS_MASK: u16 = 0b0000_1111_0000_0000;
+const VALUE_MASK: Word = 0b0000_0000_1111_1111;
+const REGISTER_ADDRESS_MASK: Word = 0b0000_1111_0000_0000;
 
-const TYPE_MASK: u16 = 0b0000_0000_0000_1111;
-const LEFT_MASK: u16 = 0b0000_1111_0000_0000;
-const RIGHT_MASK: u16 = 0b0000_0000_1111_0000;
-
+const TYPE_MASK: Word = 0b0000_0000_0000_1111;
+const LEFT_MASK: Word = 0b0000_1111_0000_0000;
+const RIGHT_MASK: Word = 0b0000_0000_1111_0000;
 
 #[allow(dead_code)]
 pub struct System {
     memory: [u8; NUM_BYTES],
     registers: [u8; NUM_REGISTERS],
-    pc: u16,
-    index: u16,
+    pc: Word,
+    index: Word,
     stack: [u8; STACK_SIZE],
     sp: u8,
 }
@@ -38,14 +38,14 @@ impl System{
     }
 
     /** Index into system memory at address and return word located there. */
-    pub fn read_word(&self, address: usize) -> u16 {
-        let left = self.memory[address] as u16;
-        let right = self.memory[address + 1] as u16;
+    pub fn read_word(&self, address: usize) -> Word {
+        let left = self.memory[address] as Word;
+        let right = self.memory[address + 1] as Word;
         (left << 8) | right
     }
 
     /** Execute the instruction. */
-    pub fn execute(&mut self, opcode: u16) {
+    pub fn execute(&mut self, opcode: Word) {
         match opcode {
 
             0x6000...0x7000 => {    // 0x6XNN : VX = NN
@@ -135,7 +135,7 @@ impl System{
             0xC000...0xD000 => {    // 0xCXNN : VX = (random) & NN
                 let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
                 let value = (opcode & VALUE_MASK) as u8;
-                self.registers[register] = generate_random() & value;
+                self.registers[register] = rand::random::<u8>() & value;
             },
 
             _ => {
@@ -145,10 +145,6 @@ impl System{
     }
 }
 
-/** Return a randomly generated 8 bit integer. */
-pub fn generate_random() -> u8 {
-    rand::random()
-}
 
 #[cfg(test)]
 mod tests {
