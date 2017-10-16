@@ -55,6 +55,17 @@ impl OpCode {
 				system.registers[left] ^= system.registers[right];
 			},
 
+			&OpCode::AddRegister(left, right) => {
+				let (value, overflow) =
+					system.registers[left].overflowing_add(system.registers[right]);
+				system.registers[left] = value;
+				if overflow {
+					system.registers[0xF] = 0x1;
+				} else {
+					system.registers[0xF] = 0x0;
+				}
+			},
+
 			&OpCode::SubRegisterRight(left, right) => {
 				let (value, overflow) =
 					system.registers[left].overflowing_sub(system.registers[right]);
@@ -93,7 +104,7 @@ impl OpCode {
 				system.registers[register] = rand::random::<Byte>() & value;
 			}
 
-			_ => {
+			&OpCode::Unknown => {
 				eprintln!("Unrecognized Instruction!");
 			}
 		}
@@ -157,7 +168,6 @@ impl From<Word> for OpCode {
 					_ => {
 						OpCode::Unknown
 					}
-
 				}
 			},
 
@@ -168,7 +178,285 @@ impl From<Word> for OpCode {
 			_ => {
 				OpCode::Unknown
 			}
-
 		}
 	}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /** Set some registers for the purposes of testing. */
+    fn set_registers_for_test(system: &mut System) {
+		OpCode::from(0x6064).execute(system);
+        OpCode::from(0x6127).execute(system);
+        OpCode::from(0x6212).execute(system);
+        OpCode::from(0x63AE).execute(system);
+        OpCode::from(0x64FF).execute(system);
+        OpCode::from(0x65B4).execute(system);
+        OpCode::from(0x6642).execute(system);
+        OpCode::from(0x6F25).execute(system);
+    }
+
+    /** The opcode 0x6XNN should store the constant NN into register VX. */
+    #[test]
+    fn load_constant() {
+        let mut system = System::new();
+
+        OpCode::from(0x6015).execute(&mut system);
+        assert_eq!(0x15, system.registers[0x0]);
+
+        OpCode::from(0x6120).execute(&mut system);
+        assert_eq!(0x20, system.registers[0x1]);
+
+		OpCode::from(0x6225).execute(&mut system);
+        assert_eq!(0x25, system.registers[0x2]);
+
+		OpCode::from(0x6330).execute(&mut system);
+        assert_eq!(0x30, system.registers[0x3]);
+
+		OpCode::from(0x6435).execute(&mut system);
+        assert_eq!(0x35, system.registers[0x4]);
+
+		OpCode::from(0x6540).execute(&mut system);
+        assert_eq!(0x40, system.registers[0x5]);
+
+		OpCode::from(0x6645).execute(&mut system);
+        assert_eq!(0x45, system.registers[0x6]);
+
+		OpCode::from(0x6750).execute(&mut system);
+        assert_eq!(0x50, system.registers[0x7]);
+
+		OpCode::from(0x6855).execute(&mut system);
+        assert_eq!(0x55, system.registers[0x8]);
+
+		OpCode::from(0x6960).execute(&mut system);
+        assert_eq!(0x60, system.registers[0x9]);
+
+		OpCode::from(0x6A65).execute(&mut system);
+        assert_eq!(0x65, system.registers[0xA]);
+
+		OpCode::from(0x6B70).execute(&mut system);
+        assert_eq!(0x70, system.registers[0xB]);
+
+		OpCode::from(0x6C75).execute(&mut system);
+        assert_eq!(0x75, system.registers[0xC]);
+
+		OpCode::from(0x6D80).execute(&mut system);
+        assert_eq!(0x80, system.registers[0xD]);
+
+		OpCode::from(0x6E85).execute(&mut system);
+        assert_eq!(0x85, system.registers[0xE]);
+
+		OpCode::from(0x6F90).execute(&mut system);
+        assert_eq!(0x90, system.registers[0xF]);
+    }
+
+    /** The opcode 0x7XNN should add the constant NN into register VX. */
+    #[test]
+    fn add_constant() {
+        let mut system = System::new();
+
+        OpCode::from(0x6015).execute(&mut system);
+        OpCode::from(0x7015).execute(&mut system);
+        assert_eq!(0x2A, system.registers[0x0]);
+
+        OpCode::from(0x6A42).execute(&mut system);
+        OpCode::from(0x7A42).execute(&mut system);
+        assert_eq!(0x84, system.registers[0xA]);
+
+        OpCode::from(0x6EFF).execute(&mut system);
+        OpCode::from(0x7E01).execute(&mut system);
+        // registers should overlow appropriately
+        assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY0 should copy the value from register VY into register VX. */
+    #[test]
+    fn copy_register() {
+        let mut system = System::new();
+
+        OpCode::from(0x6A42).execute(&mut system);
+        OpCode::from(0x8EA0).execute(&mut system);
+        assert_eq!(0x42, system.registers[0xA]);
+        assert_eq!(0x42, system.registers[0xE]);
+
+        OpCode::from(0x67DE).execute(&mut system);
+        OpCode::from(0x8F70).execute(&mut system);
+        assert_eq!(0xDE, system.registers[0x7]);
+        assert_eq!(0xDE, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XY1 should set register VX to the value (VX OR VY). */
+    #[test]
+    fn oring_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x8011).execute(&mut system);
+        assert_eq!(0x67, system.registers[0x0]);
+        assert_eq!(0x27, system.registers[0x1]);
+
+        OpCode::from(0x8231).execute(&mut system);
+        assert_eq!(0xBE, system.registers[0x2]);
+        assert_eq!(0xAE, system.registers[0x3]);
+
+        OpCode::from(0x8FE1).execute(&mut system);
+        assert_eq!(0x25, system.registers[0xF]);
+        assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY2 should set register VX to the value (VX AND VY). */
+    #[test]
+    fn anding_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x8012).execute(&mut system);
+        assert_eq!(0x24, system.registers[0x0]);
+        assert_eq!(0x27, system.registers[0x1]);
+
+        OpCode::from(0x8232).execute(&mut system);
+        assert_eq!(0x02, system.registers[0x2]);
+        assert_eq!(0xAE, system.registers[0x3]);
+
+        OpCode::from(0x8FE2).execute(&mut system);
+        assert_eq!(0x00, system.registers[0xF]);
+        assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY3 should set register VX to the value (VX XOR VY). */
+    #[test]
+    fn xoring_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x8013).execute(&mut system);
+        assert_eq!(0x43, system.registers[0x0]);
+        assert_eq!(0x27, system.registers[0x1]);
+
+        OpCode::from(0x8233).execute(&mut system);
+        assert_eq!(0xBC, system.registers[0x2]);
+        assert_eq!(0xAE, system.registers[0x3]);
+
+        OpCode::from(0x8FE3).execute(&mut system);
+        assert_eq!(0x25, system.registers[0xF]);
+        assert_eq!(0x00, system.registers[0xE]);
+    }
+
+    /** The opcode 0x8XY4 should add register VY to register VX
+      * If a carry occurs, set register VF to 01. */
+    #[test]
+    fn add_register_with_carry() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x8014).execute(&mut system);
+        assert_eq!(0x8B, system.registers[0x0]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x8234).execute(&mut system);
+        assert_eq!(0xC0, system.registers[0x2]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x6502).execute(&mut system);
+        OpCode::from(0x8454).execute(&mut system);
+        assert_eq!(0x01, system.registers[0x4]);
+        // overflow has occured - register VF should be set to 0x01
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XY5 should subtract register VY from register VX
+      * If a borrow occurs, set register VF to 01. */
+    #[test]
+    fn sub_register_with_borrow_right_subtrahend() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x8125).execute(&mut system);
+        assert_eq!(0x15, system.registers[0x1]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x8455).execute(&mut system);
+        assert_eq!(0x4B, system.registers[0x4]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x6501).execute(&mut system);
+        OpCode::from(0x8B55).execute(&mut system);
+        assert_eq!(0xFF, system.registers[0xB]);
+        // note - a borrow occurs here because subtrahend > minuend,
+            // therefore register VF should be set to 0x01
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XY6 should store the value stored in register VY right shifted by 1 bit
+    *     in register VX. Register VF should be set to the least significant bit. */
+    #[test]
+    fn rshift_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x8016).execute(&mut system);
+        assert_eq!(0x13, system.registers[0x0]);
+        assert_eq!(0x01, system.registers[0xF]);
+
+        OpCode::from(0x8236).execute(&mut system);
+        assert_eq!(0x57, system.registers[0x2]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x8446).execute(&mut system);
+        assert_eq!(0x7F, system.registers[0x4]);
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XY7 should subtract register VX from register VY
+      *     If a borrow occurs, set register VF to 01. */
+    #[test]
+    fn sub_register_with_borrow_left_subtrahend() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x8217).execute(&mut system);
+        assert_eq!(0x15, system.registers[0x1]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x8547).execute(&mut system);
+        assert_eq!(0x4B, system.registers[0x4]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x6501).execute(&mut system);
+        OpCode::from(0x85B7).execute(&mut system);
+        assert_eq!(0xFF, system.registers[0xB]);
+        // note - a borrow occurs here because subtrahend > minuend,
+            // therefore register VF should be set to 0x01
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0x8XYE should store the value stored in register VY left shifted by 1 bit
+      *     in register VX. Register VF should be set to the most significant bit. */
+    #[test]
+    fn lshift_register() {
+        let mut system = System::new();
+        set_registers_for_test(&mut system);
+
+        OpCode::from(0x801E).execute(&mut system);
+        assert_eq!(0x4E, system.registers[0x0]);
+        assert_eq!(0x00, system.registers[0xF]);
+
+        OpCode::from(0x823E).execute(&mut system);
+        assert_eq!(0x5C, system.registers[0x2]);
+        assert_eq!(0x01, system.registers[0xF]);
+
+        OpCode::from(0x844E).execute(&mut system);
+        assert_eq!(0xFE, system.registers[0x4]);
+        assert_eq!(0x01, system.registers[0xF]);
+    }
+
+    /** The opcode 0xCXNN should generate a random number, mask it with NN and store it in
+      *     register VX. */
+    #[test]
+    #[ignore]
+    fn random_register() {
+        // TODO
+    }
 }
