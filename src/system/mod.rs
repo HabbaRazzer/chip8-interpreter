@@ -2,6 +2,7 @@ mod macros;
 extern crate rand;
 
 pub type Word = u16;
+pub type Byte = u8;
 
 const NUM_BYTES: usize = 4096;
 const NUM_REGISTERS: usize = 16;
@@ -16,12 +17,12 @@ const RIGHT_MASK: Word = 0b0000_0000_1111_0000;
 
 #[allow(dead_code)]
 pub struct System {
-    memory: [u8; NUM_BYTES],
-    registers: [u8; NUM_REGISTERS],
+    memory: [Byte; NUM_BYTES],
+    registers: [Byte; NUM_REGISTERS],
     pc: Word,
     index: Word,
-    stack: [u8; STACK_SIZE],
-    sp: u8,
+    stack: [Byte; STACK_SIZE],
+    sp: Byte,
 }
 
 #[allow(dead_code)]
@@ -50,13 +51,13 @@ impl System{
 
             0x6000...0x7000 => {    // 0x6XNN : VX = NN
                 let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
-                let value = (opcode & VALUE_MASK) as u8;
+                let value = (opcode & VALUE_MASK) as Byte;
                 self.registers[register] = value;
             },
 
             0x7000...0x8000 => {    // 0x7XNN : VX = VX + NN
                 let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
-                let value = (opcode & VALUE_MASK) as u8;
+                let value = (opcode & VALUE_MASK) as Byte;
                 self.registers[register] = self.registers[register].wrapping_add(value);
             },
 
@@ -134,8 +135,8 @@ impl System{
 
             0xC000...0xD000 => {    // 0xCXNN : VX = (random) & NN
                 let register = ((opcode & REGISTER_ADDRESS_MASK) >> 8) as usize;
-                let value = (opcode & VALUE_MASK) as u8;
-                self.registers[register] = rand::random::<u8>() & value;
+                let value = (opcode & VALUE_MASK) as Byte;
+                self.registers[register] = rand::random::<Byte>() & value;
             },
 
             _ => {
