@@ -4,7 +4,7 @@ extern crate rand;
 
 pub type Word = u16;
 pub type Byte = u8;
-pub type RegisterAddress = u8;
+pub type RegisterAddress = usize;
 
 const NUM_BYTES: usize = 4096;
 const NUM_REGISTERS: usize = 16;
