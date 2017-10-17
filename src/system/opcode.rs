@@ -61,13 +61,11 @@ impl OpCode {
 			&OpCode::SkipValue(register, value) => {
 				if system.registers[register] == value {
 					system.increment_pc();
-					system.increment_pc();
 				}
 			},
 
 			&OpCode::SkipRegister(left, right) => {
 				if system.registers[left] == system.registers[right] {
-					system.increment_pc();
 					system.increment_pc();
 				}
 			},
@@ -75,13 +73,11 @@ impl OpCode {
 			&OpCode::SkipNotValue(register, value) => {
 				if system.registers[register] != value {
 					system.increment_pc();
-					system.increment_pc();
 				}
 			},
 
 			&OpCode::SkipNotRegister(left, right) => {
 				if system.registers[left] != system.registers[right] {
-					system.increment_pc();
 					system.increment_pc();
 				}
 			},
@@ -606,11 +602,11 @@ mod tests {
 
 		OpCode::from(0x3212).execute(&mut system).unwrap();
 		// skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 
 		OpCode::from(0x3213).execute(&mut system).unwrap();
 		// do NOT skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 	}
 
 	/** The opcode 0x5XY0 should instruct the interpreter to skip the next instruction if the
@@ -623,11 +619,11 @@ mod tests {
 
 		OpCode::from(0x5120).execute(&mut system).unwrap();
 		// skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 
 		OpCode::from(0x5140).execute(&mut system).unwrap();
 		// do NOT skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 	}
 
 	/** The opcode 0x4XNN should instruct the interpreter to skip the next instruction if the
@@ -639,11 +635,11 @@ mod tests {
 
 		OpCode::from(0x4112).execute(&mut system).unwrap();
 		// skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 
 		OpCode::from(0x4212).execute(&mut system).unwrap();
 		// do NOT skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 	}
 
 	/** The opcode 0x5XY0 should instruct the interpreter to skip the next instruction if the
@@ -656,11 +652,11 @@ mod tests {
 
 		OpCode::from(0x9140).execute(&mut system).unwrap();
 		// skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 
 		OpCode::from(0x9120).execute(&mut system).unwrap();
 		// do NOT skip
-		assert_eq!(0x204, system.pc);
+		assert_eq!(0x202, system.pc);
 	}
 
 }
