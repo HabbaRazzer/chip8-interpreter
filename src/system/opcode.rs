@@ -14,6 +14,8 @@ const RIGHT_MASK: Word = 0b0000_0000_1111_0000;
 enum OpCode {
 	JumpAddress(Address),
 	JumpAddressOffset(Address),
+	SubJump(Address),
+	SubReturn,
 	SetValue(RegisterAddress, Byte),
 	AddValue(RegisterAddress, Byte),
 	SetRegister(RegisterAddress, RegisterAddress),
@@ -31,7 +33,7 @@ enum OpCode {
 
 #[allow(dead_code)]
 impl OpCode {
-	fn execute(&self, system: &mut System) {
+	fn execute(&self, system: &mut System) -> Result<(), &'static str> {
 		match self {
 			&OpCode::JumpAddress(address) => {
 				system.pc = address;
@@ -40,6 +42,17 @@ impl OpCode {
 			&OpCode::JumpAddressOffset(address) => {
 				system.pc = address + system.registers[0x0] as Word;
 			},
+
+			&OpCode::SubJump(address) => {
+				system.stack[system.sp as usize] = system.pc;
+				system.sp += 1;
+				system.pc = address;
+			},
+
+			&OpCode::SubReturn => {
+				system.sp -= 1;
+				system.pc = system.stack[system.sp as usize];
+			}
 
 			&OpCode::SetValue(register, value) => {
 				system.registers[register] = value;
@@ -116,9 +129,11 @@ impl OpCode {
 			}
 
 			&OpCode::Unknown => {
-				eprintln!("Unrecognized Instruction!");
+				return Err("Unrecognized Instruction!");
 			}
 		}
+
+		Ok(())
 	}
 }
 
@@ -128,8 +143,16 @@ impl From<Word> for OpCode {
 		let value = (word & VALUE_MASK) as Byte;
 
 		match word {
+			0x0000...0x1000 => {
+				OpCode::SubReturn
+			},
+
 			0x1000...0x2000 => {
 				OpCode::JumpAddress(word & ADDRESS_MASK)
+			},
+
+			0x2000...0x3000 => {
+				OpCode::SubJump(word & ADDRESS_MASK)
 			},
 
 			0x6000...0x7000 => {
@@ -207,14 +230,14 @@ mod tests {
 
     /** Set some registers for the purposes of testing. */
     fn set_registers_for_test(system: &mut System) {
-		OpCode::from(0x6064).execute(system);
-        OpCode::from(0x6127).execute(system);
-        OpCode::from(0x6212).execute(system);
-        OpCode::from(0x63AE).execute(system);
-        OpCode::from(0x64FF).execute(system);
-        OpCode::from(0x65B4).execute(system);
-        OpCode::from(0x6642).execute(system);
-        OpCode::from(0x6F25).execute(system);
+		OpCode::from(0x6064).execute(system).unwrap();
+        OpCode::from(0x6127).execute(system).unwrap();
+        OpCode::from(0x6212).execute(system).unwrap();
+        OpCode::from(0x63AE).execute(system).unwrap();
+        OpCode::from(0x64FF).execute(system).unwrap();
+        OpCode::from(0x65B4).execute(system).unwrap();
+        OpCode::from(0x6642).execute(system).unwrap();
+        OpCode::from(0x6F25).execute(system).unwrap();
     }
 
     /** The opcode 0x6XNN should store the constant NN into register VX. */
@@ -222,52 +245,52 @@ mod tests {
     fn load_constant() {
         let mut system = System::new();
 
-        OpCode::from(0x6015).execute(&mut system);
+        OpCode::from(0x6015).execute(&mut system).unwrap();
         assert_eq!(0x15, system.registers[0x0]);
 
-        OpCode::from(0x6120).execute(&mut system);
+        OpCode::from(0x6120).execute(&mut system).unwrap();
         assert_eq!(0x20, system.registers[0x1]);
 
-		OpCode::from(0x6225).execute(&mut system);
+		OpCode::from(0x6225).execute(&mut system).unwrap();
         assert_eq!(0x25, system.registers[0x2]);
 
-		OpCode::from(0x6330).execute(&mut system);
+		OpCode::from(0x6330).execute(&mut system).unwrap();
         assert_eq!(0x30, system.registers[0x3]);
 
-		OpCode::from(0x6435).execute(&mut system);
+		OpCode::from(0x6435).execute(&mut system).unwrap();
         assert_eq!(0x35, system.registers[0x4]);
 
-		OpCode::from(0x6540).execute(&mut system);
+		OpCode::from(0x6540).execute(&mut system).unwrap();
         assert_eq!(0x40, system.registers[0x5]);
 
-		OpCode::from(0x6645).execute(&mut system);
+		OpCode::from(0x6645).execute(&mut system).unwrap();
         assert_eq!(0x45, system.registers[0x6]);
 
-		OpCode::from(0x6750).execute(&mut system);
+		OpCode::from(0x6750).execute(&mut system).unwrap();
         assert_eq!(0x50, system.registers[0x7]);
 
-		OpCode::from(0x6855).execute(&mut system);
+		OpCode::from(0x6855).execute(&mut system).unwrap();
         assert_eq!(0x55, system.registers[0x8]);
 
-		OpCode::from(0x6960).execute(&mut system);
+		OpCode::from(0x6960).execute(&mut system).unwrap();
         assert_eq!(0x60, system.registers[0x9]);
 
-		OpCode::from(0x6A65).execute(&mut system);
+		OpCode::from(0x6A65).execute(&mut system).unwrap();
         assert_eq!(0x65, system.registers[0xA]);
 
-		OpCode::from(0x6B70).execute(&mut system);
+		OpCode::from(0x6B70).execute(&mut system).unwrap();
         assert_eq!(0x70, system.registers[0xB]);
 
-		OpCode::from(0x6C75).execute(&mut system);
+		OpCode::from(0x6C75).execute(&mut system).unwrap();
         assert_eq!(0x75, system.registers[0xC]);
 
-		OpCode::from(0x6D80).execute(&mut system);
+		OpCode::from(0x6D80).execute(&mut system).unwrap();
         assert_eq!(0x80, system.registers[0xD]);
 
-		OpCode::from(0x6E85).execute(&mut system);
+		OpCode::from(0x6E85).execute(&mut system).unwrap();
         assert_eq!(0x85, system.registers[0xE]);
 
-		OpCode::from(0x6F90).execute(&mut system);
+		OpCode::from(0x6F90).execute(&mut system).unwrap();
         assert_eq!(0x90, system.registers[0xF]);
     }
 
@@ -276,16 +299,16 @@ mod tests {
     fn add_constant() {
         let mut system = System::new();
 
-        OpCode::from(0x6015).execute(&mut system);
-        OpCode::from(0x7015).execute(&mut system);
+        OpCode::from(0x6015).execute(&mut system).unwrap();
+        OpCode::from(0x7015).execute(&mut system).unwrap();
         assert_eq!(0x2A, system.registers[0x0]);
 
-        OpCode::from(0x6A42).execute(&mut system);
-        OpCode::from(0x7A42).execute(&mut system);
+        OpCode::from(0x6A42).execute(&mut system).unwrap();
+        OpCode::from(0x7A42).execute(&mut system).unwrap();
         assert_eq!(0x84, system.registers[0xA]);
 
-        OpCode::from(0x6EFF).execute(&mut system);
-        OpCode::from(0x7E01).execute(&mut system);
+        OpCode::from(0x6EFF).execute(&mut system).unwrap();
+        OpCode::from(0x7E01).execute(&mut system).unwrap();
         // registers should overlow appropriately
         assert_eq!(0x00, system.registers[0xE]);
     }
@@ -295,13 +318,13 @@ mod tests {
     fn copy_register() {
         let mut system = System::new();
 
-        OpCode::from(0x6A42).execute(&mut system);
-        OpCode::from(0x8EA0).execute(&mut system);
+        OpCode::from(0x6A42).execute(&mut system).unwrap();
+        OpCode::from(0x8EA0).execute(&mut system).unwrap();
         assert_eq!(0x42, system.registers[0xA]);
         assert_eq!(0x42, system.registers[0xE]);
 
-        OpCode::from(0x67DE).execute(&mut system);
-        OpCode::from(0x8F70).execute(&mut system);
+        OpCode::from(0x67DE).execute(&mut system).unwrap();
+        OpCode::from(0x8F70).execute(&mut system).unwrap();
         assert_eq!(0xDE, system.registers[0x7]);
         assert_eq!(0xDE, system.registers[0xF]);
     }
@@ -312,15 +335,15 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x8011).execute(&mut system);
+        OpCode::from(0x8011).execute(&mut system).unwrap();
         assert_eq!(0x67, system.registers[0x0]);
         assert_eq!(0x27, system.registers[0x1]);
 
-        OpCode::from(0x8231).execute(&mut system);
+        OpCode::from(0x8231).execute(&mut system).unwrap();
         assert_eq!(0xBE, system.registers[0x2]);
         assert_eq!(0xAE, system.registers[0x3]);
 
-        OpCode::from(0x8FE1).execute(&mut system);
+        OpCode::from(0x8FE1).execute(&mut system).unwrap();
         assert_eq!(0x25, system.registers[0xF]);
         assert_eq!(0x00, system.registers[0xE]);
     }
@@ -331,15 +354,15 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x8012).execute(&mut system);
+        OpCode::from(0x8012).execute(&mut system).unwrap();
         assert_eq!(0x24, system.registers[0x0]);
         assert_eq!(0x27, system.registers[0x1]);
 
-        OpCode::from(0x8232).execute(&mut system);
+        OpCode::from(0x8232).execute(&mut system).unwrap();
         assert_eq!(0x02, system.registers[0x2]);
         assert_eq!(0xAE, system.registers[0x3]);
 
-        OpCode::from(0x8FE2).execute(&mut system);
+        OpCode::from(0x8FE2).execute(&mut system).unwrap();
         assert_eq!(0x00, system.registers[0xF]);
         assert_eq!(0x00, system.registers[0xE]);
     }
@@ -350,15 +373,15 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x8013).execute(&mut system);
+        OpCode::from(0x8013).execute(&mut system).unwrap();
         assert_eq!(0x43, system.registers[0x0]);
         assert_eq!(0x27, system.registers[0x1]);
 
-        OpCode::from(0x8233).execute(&mut system);
+        OpCode::from(0x8233).execute(&mut system).unwrap();
         assert_eq!(0xBC, system.registers[0x2]);
         assert_eq!(0xAE, system.registers[0x3]);
 
-        OpCode::from(0x8FE3).execute(&mut system);
+        OpCode::from(0x8FE3).execute(&mut system).unwrap();
         assert_eq!(0x25, system.registers[0xF]);
         assert_eq!(0x00, system.registers[0xE]);
     }
@@ -370,16 +393,16 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x8014).execute(&mut system);
+        OpCode::from(0x8014).execute(&mut system).unwrap();
         assert_eq!(0x8B, system.registers[0x0]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x8234).execute(&mut system);
+        OpCode::from(0x8234).execute(&mut system).unwrap();
         assert_eq!(0xC0, system.registers[0x2]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x6502).execute(&mut system);
-        OpCode::from(0x8454).execute(&mut system);
+        OpCode::from(0x6502).execute(&mut system).unwrap();
+        OpCode::from(0x8454).execute(&mut system).unwrap();
         assert_eq!(0x01, system.registers[0x4]);
         // overflow has occured - register VF should be set to 0x01
         assert_eq!(0x01, system.registers[0xF]);
@@ -392,16 +415,16 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x8125).execute(&mut system);
+        OpCode::from(0x8125).execute(&mut system).unwrap();
         assert_eq!(0x15, system.registers[0x1]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x8455).execute(&mut system);
+        OpCode::from(0x8455).execute(&mut system).unwrap();
         assert_eq!(0x4B, system.registers[0x4]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x6501).execute(&mut system);
-        OpCode::from(0x8B55).execute(&mut system);
+        OpCode::from(0x6501).execute(&mut system).unwrap();
+        OpCode::from(0x8B55).execute(&mut system).unwrap();
         assert_eq!(0xFF, system.registers[0xB]);
         // note - a borrow occurs here because subtrahend > minuend,
             // therefore register VF should be set to 0x01
@@ -415,15 +438,15 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x8016).execute(&mut system);
+        OpCode::from(0x8016).execute(&mut system).unwrap();
         assert_eq!(0x13, system.registers[0x0]);
         assert_eq!(0x01, system.registers[0xF]);
 
-        OpCode::from(0x8236).execute(&mut system);
+        OpCode::from(0x8236).execute(&mut system).unwrap();
         assert_eq!(0x57, system.registers[0x2]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x8446).execute(&mut system);
+        OpCode::from(0x8446).execute(&mut system).unwrap();
         assert_eq!(0x7F, system.registers[0x4]);
         assert_eq!(0x01, system.registers[0xF]);
     }
@@ -435,16 +458,16 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x8217).execute(&mut system);
+        OpCode::from(0x8217).execute(&mut system).unwrap();
         assert_eq!(0x15, system.registers[0x1]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x8547).execute(&mut system);
+        OpCode::from(0x8547).execute(&mut system).unwrap();
         assert_eq!(0x4B, system.registers[0x4]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x6501).execute(&mut system);
-        OpCode::from(0x85B7).execute(&mut system);
+        OpCode::from(0x6501).execute(&mut system).unwrap();
+        OpCode::from(0x85B7).execute(&mut system).unwrap();
         assert_eq!(0xFF, system.registers[0xB]);
         // note - a borrow occurs here because subtrahend > minuend,
             // therefore register VF should be set to 0x01
@@ -458,15 +481,15 @@ mod tests {
         let mut system = System::new();
         set_registers_for_test(&mut system);
 
-        OpCode::from(0x801E).execute(&mut system);
+        OpCode::from(0x801E).execute(&mut system).unwrap();
         assert_eq!(0x4E, system.registers[0x0]);
         assert_eq!(0x00, system.registers[0xF]);
 
-        OpCode::from(0x823E).execute(&mut system);
+        OpCode::from(0x823E).execute(&mut system).unwrap();
         assert_eq!(0x5C, system.registers[0x2]);
         assert_eq!(0x01, system.registers[0xF]);
 
-        OpCode::from(0x844E).execute(&mut system);
+        OpCode::from(0x844E).execute(&mut system).unwrap();
         assert_eq!(0xFE, system.registers[0x4]);
         assert_eq!(0x01, system.registers[0xF]);
     }
@@ -484,7 +507,7 @@ mod tests {
 	fn jump_address() {
 		let mut system = System::new();
 
-		OpCode::from(0x12AE).execute(&mut system);
+		OpCode::from(0x12AE).execute(&mut system).unwrap();
 		assert_eq!(0x2AE, system.pc);
 	}
 
@@ -493,9 +516,32 @@ mod tests {
 	#[test]
 	fn jump_address_with_offset() {
 		let mut system = System::new();
-		OpCode::from(0x6064).execute(&mut system);
+		OpCode::from(0x6064).execute(&mut system).unwrap();
 
-		OpCode::from(0xB2AE).execute(&mut system);
+		OpCode::from(0xB2AE).execute(&mut system).unwrap();
 		assert_eq!(0x312, system.pc);
+	}
+
+	/** The opcode 0x2NNN should instruct the interpreter to start execution of instructions at
+	  * 	address NNN. */
+	#[test]
+	fn subroutine_jump() {
+		let mut system = System::new();
+
+		OpCode::from(0x22AE).execute(&mut system).unwrap();
+		assert_eq!(0x2AE, system.pc);
+		assert_eq!(1, system.sp);
+		assert_eq!(0x200, system.stack[(system.sp - 1) as usize]);
+	}
+
+	/** The opcode 0x00EE should instruct the interpreter to return from a subroutine. */
+	#[test]
+	fn subroutine_return() {
+		let mut system = System::new();
+
+		OpCode::from(0x22AE).execute(&mut system).unwrap();
+		OpCode::from(0x00EE).execute(&mut system).unwrap();
+		assert_eq!(0x200, system.pc);
+		assert_eq!(0, system.sp);
 	}
 }

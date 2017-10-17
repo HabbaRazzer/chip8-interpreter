@@ -17,7 +17,7 @@ pub struct System {
     registers: [Byte; NUM_REGISTERS],
     pc: Word,
     index: Word,
-    stack: [Byte; STACK_SIZE],
+    stack: Vec<Word>,
     sp: Byte,
 }
 
@@ -27,9 +27,9 @@ impl System{
         System {
             memory: vec![0; NUM_BYTES],
             registers: [0; NUM_REGISTERS],
-            pc: 0,
+            pc: 0x200,
             index: 0,
-            stack: [0; STACK_SIZE],
+            stack: vec![0; STACK_SIZE],
             sp: 0,
         }
     }
@@ -38,9 +38,9 @@ impl System{
         let mut system = System {
             memory: vec![0; NUM_BYTES],
             registers: [0; NUM_REGISTERS],
-            pc: 0,
+            pc: 0x200,
             index: 0,
-            stack: [0; STACK_SIZE],
+            stack: vec![0; STACK_SIZE],
             sp: 0,
         };
 
