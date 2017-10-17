@@ -60,6 +60,11 @@ impl System{
         let right = self.memory[address + 1] as Word;
         (left << 8) | right
     }
+
+    /** Increment the program counter. */
+    pub fn increment_pc(&mut self) {
+        self.pc += 2;
+    }
 }
 
 

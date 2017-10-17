@@ -16,6 +16,10 @@ enum OpCode {
 	JumpAddressOffset(Address),
 	SubJump(Address),
 	SubReturn,
+	SkipValue(RegisterAddress, Byte),
+	SkipRegister(RegisterAddress, RegisterAddress),
+	SkipNotValue(RegisterAddress, Byte),
+	SkipNotRegister(RegisterAddress, RegisterAddress),
 	SetValue(RegisterAddress, Byte),
 	AddValue(RegisterAddress, Byte),
 	SetRegister(RegisterAddress, RegisterAddress),
@@ -52,7 +56,35 @@ impl OpCode {
 			&OpCode::SubReturn => {
 				system.sp -= 1;
 				system.pc = system.stack[system.sp as usize];
-			}
+			},
+
+			&OpCode::SkipValue(register, value) => {
+				if system.registers[register] == value {
+					system.increment_pc();
+					system.increment_pc();
+				}
+			},
+
+			&OpCode::SkipRegister(left, right) => {
+				if system.registers[left] == system.registers[right] {
+					system.increment_pc();
+					system.increment_pc();
+				}
+			},
+
+			&OpCode::SkipNotValue(register, value) => {
+				if system.registers[register] != value {
+					system.increment_pc();
+					system.increment_pc();
+				}
+			},
+
+			&OpCode::SkipNotRegister(left, right) => {
+				if system.registers[left] != system.registers[right] {
+					system.increment_pc();
+					system.increment_pc();
+				}
+			},
 
 			&OpCode::SetValue(register, value) => {
 				system.registers[register] = value;
@@ -155,6 +187,20 @@ impl From<Word> for OpCode {
 				OpCode::SubJump(word & ADDRESS_MASK)
 			},
 
+			0x3000...0x4000 => {
+				OpCode::SkipValue(register, value)
+			},
+
+			0x4000...0x5000 => {
+				OpCode::SkipNotValue(register, value)
+			}
+
+			0x5000...0x6000 => {
+				OpCode::SkipRegister(
+					((word & LEFT_MASK) >> 8) as usize,
+					((word & RIGHT_MASK) >> 4) as usize)
+			},
+
 			0x6000...0x7000 => {
 				OpCode::SetValue(register, value)
 			},
@@ -207,6 +253,12 @@ impl From<Word> for OpCode {
 						OpCode::Unknown
 					}
 				}
+			},
+
+			0x9000...0xA000 => {
+				OpCode::SkipNotRegister(
+					((word & LEFT_MASK) >> 8) as usize,
+					((word & RIGHT_MASK) >> 4) as usize)
 			},
 
 			0xB000...0xC000 => {
@@ -544,4 +596,71 @@ mod tests {
 		assert_eq!(0x200, system.pc);
 		assert_eq!(0, system.sp);
 	}
+
+	/** The opcode 0x3XNN should instruct the interpreter to skip the next instruction if the
+	  * 	value stored in register VX is NN. */
+	#[test]
+	fn skip_value() {
+		let mut system = System::new();
+		set_registers_for_test(&mut system);
+
+		OpCode::from(0x3212).execute(&mut system).unwrap();
+		// skip
+		assert_eq!(0x204, system.pc);
+
+		OpCode::from(0x3213).execute(&mut system).unwrap();
+		// do NOT skip
+		assert_eq!(0x204, system.pc);
+	}
+
+	/** The opcode 0x5XY0 should instruct the interpreter to skip the next instruction if the
+	  * 	value stored in register VX is equal to the value stored in register VY. */
+	#[test]
+	fn skip_register() {
+		let mut system = System::new();
+		set_registers_for_test(&mut system);
+		OpCode::from(0x6227).execute(&mut system).unwrap();
+
+		OpCode::from(0x5120).execute(&mut system).unwrap();
+		// skip
+		assert_eq!(0x204, system.pc);
+
+		OpCode::from(0x5140).execute(&mut system).unwrap();
+		// do NOT skip
+		assert_eq!(0x204, system.pc);
+	}
+
+	/** The opcode 0x4XNN should instruct the interpreter to skip the next instruction if the
+	  * 	value stored in register VX is not equal to NN. */
+	#[test]
+	fn skip_not_value() {
+		let mut system = System::new();
+		set_registers_for_test(&mut system);
+
+		OpCode::from(0x4112).execute(&mut system).unwrap();
+		// skip
+		assert_eq!(0x204, system.pc);
+
+		OpCode::from(0x4212).execute(&mut system).unwrap();
+		// do NOT skip
+		assert_eq!(0x204, system.pc);
+	}
+
+	/** The opcode 0x5XY0 should instruct the interpreter to skip the next instruction if the
+	  * 	value stored in register VX is not equal to the value stored in register VY. */
+	#[test]
+	fn skip_not_register() {
+		let mut system = System::new();
+		set_registers_for_test(&mut system);
+		OpCode::from(0x6227).execute(&mut system).unwrap();
+
+		OpCode::from(0x9140).execute(&mut system).unwrap();
+		// skip
+		assert_eq!(0x204, system.pc);
+
+		OpCode::from(0x9120).execute(&mut system).unwrap();
+		// do NOT skip
+		assert_eq!(0x204, system.pc);
+	}
+
 }
