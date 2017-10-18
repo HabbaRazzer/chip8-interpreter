@@ -1,6 +1,6 @@
 extern crate rand;
 
-use system::{System, Word, Byte, RegisterAddress, Address};
+use system::{System, Word, Byte, RegisterIndex, Address};
 
 const VALUE_MASK: Word = 0b0000_0000_1111_1111;
 const REGISTER_MASK: Word = 0b0000_1111_0000_0000;
@@ -16,22 +16,25 @@ enum OpCode {
 	JumpAddressOffset(Address),
 	SubJump(Address),
 	SubReturn,
-	SkipValue(RegisterAddress, Byte),
-	SkipRegister(RegisterAddress, RegisterAddress),
-	SkipNotValue(RegisterAddress, Byte),
-	SkipNotRegister(RegisterAddress, RegisterAddress),
-	SetValue(RegisterAddress, Byte),
-	AddValue(RegisterAddress, Byte),
-	SetRegister(RegisterAddress, RegisterAddress),
-	OrRegister(RegisterAddress, RegisterAddress),
-	AndRegister(RegisterAddress, RegisterAddress),
-	XorRegister(RegisterAddress, RegisterAddress),
-	AddRegister(RegisterAddress, RegisterAddress),
-	SubRegisterRight(RegisterAddress, RegisterAddress),
-	RShiftRegister(RegisterAddress, RegisterAddress),
-	SubRegisterLeft(RegisterAddress, RegisterAddress),
-	LShiftRegister(RegisterAddress, RegisterAddress),
-	RandomValue(RegisterAddress, Byte),
+	SkipValue(RegisterIndex, Byte),
+	SkipRegister(RegisterIndex, RegisterIndex),
+	SkipNotValue(RegisterIndex, Byte),
+	SkipNotRegister(RegisterIndex, RegisterIndex),
+	SetDelayTimer(RegisterIndex),
+	SetRegisterFromTimer(RegisterIndex),
+	SetSoundTimer(RegisterIndex),
+	SetValue(RegisterIndex, Byte),
+	AddValue(RegisterIndex, Byte),
+	SetRegister(RegisterIndex, RegisterIndex),
+	OrRegister(RegisterIndex, RegisterIndex),
+	AndRegister(RegisterIndex, RegisterIndex),
+	XorRegister(RegisterIndex, RegisterIndex),
+	AddRegister(RegisterIndex, RegisterIndex),
+	SubRegisterRight(RegisterIndex, RegisterIndex),
+	RShiftRegister(RegisterIndex, RegisterIndex),
+	SubRegisterLeft(RegisterIndex, RegisterIndex),
+	LShiftRegister(RegisterIndex, RegisterIndex),
+	RandomValue(RegisterIndex, Byte),
 	Unknown
 }
 
@@ -80,6 +83,18 @@ impl OpCode {
 				if system.registers[left] != system.registers[right] {
 					system.increment_pc();
 				}
+			},
+
+			&OpCode::SetDelayTimer(register) => {
+				system.delay_timer = system.registers[register];
+			},
+
+			&OpCode::SetRegisterFromTimer(register) => {
+				system.registers[register] = system.delay_timer;
+			},
+
+			&OpCode::SetSoundTimer(register) => {
+				system.sound_timer = system.registers[register];
 			},
 
 			&OpCode::SetValue(register, value) => {
@@ -263,7 +278,27 @@ impl From<Word> for OpCode {
 
 			0xC000...0xD000 => {
 				OpCode::RandomValue(register, value)
-			}
+			},
+
+			0xF000...0xFFFF => {
+				match word & VALUE_MASK {
+					0x15 => {
+						OpCode::SetDelayTimer(register)
+					},
+
+					0x07 => {
+						OpCode::SetRegisterFromTimer(register)
+					},
+
+					0x18 => {
+						OpCode::SetSoundTimer(register)
+					},
+
+					_ => {
+						OpCode::Unknown
+					}
+				}
+			},
 
 			_ => {
 				OpCode::Unknown
@@ -659,4 +694,34 @@ mod tests {
 		assert_eq!(0x202, system.pc);
 	}
 
+	/** The opcode 0xFX15 should set the delay timer to the value stored in register VX. */
+	#[test]
+	fn set_delay_timer() {
+		let mut system = System::new();
+		OpCode::from(0x6227).execute(&mut system).unwrap();
+
+		OpCode::from(0xF215).execute(&mut system).unwrap();
+		assert_eq!(0x27, system.delay_timer);
+	}
+
+	/** The opcode 0xFX07 should store in register VX the current value of the delay timer. */
+	#[test]
+	fn set_register_from_timer() {
+		let mut system = System::new();
+		OpCode::from(0x6227).execute(&mut system).unwrap();
+		OpCode::from(0xF215).execute(&mut system).unwrap();
+
+		OpCode::from(0xFB07).execute(&mut system).unwrap();
+		assert_eq!(0x27, system.registers[0xB]);
+	}
+
+	/** The opcode 0xFX18 should set the sound timer to the value stored in register VX. */
+	#[test]
+	fn set_sound_timer() {
+		let mut system = System::new();
+		OpCode::from(0x6227).execute(&mut system).unwrap();
+
+		OpCode::from(0xF218).execute(&mut system).unwrap();
+		assert_eq!(0x27, system.sound_timer);
+	}
 }

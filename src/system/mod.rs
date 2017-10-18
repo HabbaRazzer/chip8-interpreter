@@ -5,7 +5,7 @@ use std::io::prelude::*;
 pub type Word = u16;
 pub type Byte = u8;
 pub type Address = u16;
-pub type RegisterAddress = usize;
+pub type RegisterIndex = usize;
 
 const NUM_BYTES: usize = 4096;
 const NUM_REGISTERS: usize = 16;
@@ -19,6 +19,8 @@ pub struct System {
     index: Word,
     stack: Vec<Word>,
     sp: Byte,
+    delay_timer: Byte,
+    sound_timer: Byte,
 }
 
 #[allow(dead_code)]
@@ -31,6 +33,8 @@ impl System{
             index: 0,
             stack: vec![0; STACK_SIZE],
             sp: 0,
+            delay_timer: 0,
+            sound_timer: 0,
         }
     }
 
@@ -42,6 +46,8 @@ impl System{
             index: 0,
             stack: vec![0; STACK_SIZE],
             sp: 0,
+            delay_timer: 0,
+            sound_timer: 0,
         };
 
         let mut handle = File::open(path).expect("File not found!");
