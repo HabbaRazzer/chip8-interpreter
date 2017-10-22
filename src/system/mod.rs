@@ -10,6 +10,7 @@ pub type RegisterIndex = usize;
 const NUM_BYTES: usize = 4096;
 const NUM_REGISTERS: usize = 16;
 const STACK_SIZE: usize = 48;
+const NUM_KEYS: usize = 16;
 
 #[allow(dead_code)]
 pub struct System {
@@ -21,6 +22,7 @@ pub struct System {
     sp: Byte,
     delay_timer: Byte,
     sound_timer: Byte,
+    keys: Vec<Byte>,
 }
 
 #[allow(dead_code)]
@@ -35,6 +37,7 @@ impl System{
             sp: 0,
             delay_timer: 0,
             sound_timer: 0,
+            keys: vec![0; NUM_KEYS],
         }
     }
 
@@ -48,6 +51,7 @@ impl System{
             sp: 0,
             delay_timer: 0,
             sound_timer: 0,
+            keys: vec![0; NUM_KEYS],
         };
 
         let mut handle = File::open(path).expect("File not found!");

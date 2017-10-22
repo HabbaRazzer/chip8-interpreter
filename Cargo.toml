@@ -5,3 +5,7 @@ authors = ["Nick Martinez <habbarazzer@gmail.com>"]
 
 [dependencies]
 rand = "0.3"
+
+[dependencies.gtk]
+version = "0.2.0"
+features = ["v3_10"]
