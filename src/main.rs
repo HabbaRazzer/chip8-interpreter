@@ -1,4 +1,5 @@
 mod system;
+mod macros;
 extern crate gtk;
 extern crate gdk;
 
@@ -6,7 +7,7 @@ use gtk::prelude::*;
 use gtk::{Window, WindowType};
 
 use std::cell::{RefCell, RefMut};
-use system::System;
+use system::{System, KeyEventType};
 
 fn main() {
     if gtk::init().is_err() {
@@ -20,21 +21,24 @@ fn main() {
     window.show_all();
 
     let system: RefCell<System> = RefCell::new(System::new());
-    // callback for key press event
-    window.connect_key_press_event(move |_, key| {
-        let mut p_system: RefMut<System>;
-        loop {
-            let result = system.try_borrow_mut();
-            if result.is_ok() {
-                p_system = result.unwrap();
-                break;
-            }
-        }
 
-        p_system.handle_input(key.get_keyval());
+    // callback for key press event
+    window.connect_key_press_event(clone!( system => move |_, key| {
+        let mut p_system: RefMut<System> = wait_for_borrow!(system);
+
+        p_system.handle_input(key.get_keyval(), KeyEventType::KeyPress);
 
         Inhibit(false)
-    });
+    }));
+
+    // callback for key release event
+    window.connect_key_release_event(clone!( system => move |_, key| {
+        let mut p_system: RefMut<System> = wait_for_borrow!(system);
+
+        p_system.handle_input(key.get_keyval(), KeyEventType::KeyRelease);
+
+        Inhibit(false)
+    }));
 
     // callback for delete event
     window.connect_delete_event(|_, _| {
