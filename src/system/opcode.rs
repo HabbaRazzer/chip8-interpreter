@@ -35,6 +35,9 @@ enum OpCode {
 	SubRegisterLeft(RegisterIndex, RegisterIndex),
 	LShiftRegister(RegisterIndex, RegisterIndex),
 	RandomValue(RegisterIndex, Byte),
+	WaitKeyPress(RegisterIndex),
+	SkipKeyPressed(RegisterIndex),
+	SkipKeyNotPressed(RegisterIndex),
 	Unknown
 }
 
@@ -169,7 +172,36 @@ impl OpCode {
 
 			&OpCode::RandomValue(register, value) => {
 				system.registers[register] = rand::random::<Byte>() & value;
-			}
+			},
+
+			&OpCode::WaitKeyPress(register) => {
+				// TODO: This might not grab the most recently pushed key due to the way I check
+				//   for each index here. It is possible that a key is pushed in an already checked
+				//   index before a key is pushed in an index yet to be checked. In this way the
+				//   key that was pressed second will be stored.
+				loop {
+					for (index, is_pressed) in system.keys.iter().enumerate() {
+						if *is_pressed {
+							system.registers[register] = index as u8;
+							break;
+						}
+					}
+				}
+			},
+
+			&OpCode::SkipKeyPressed(register) => {
+				let index = system.registers[register] as usize;
+				if system.keys[index] {
+					system.increment_pc();
+				}
+			},
+
+			&OpCode::SkipKeyNotPressed(register) => {
+				let index = system.registers[register] as usize;
+				if !system.keys[index] {
+					system.increment_pc();
+				}
+			},
 
 			&OpCode::Unknown => {
 				return Err("Unrecognized Instruction!");
@@ -280,6 +312,22 @@ impl From<Word> for OpCode {
 				OpCode::RandomValue(register, value)
 			},
 
+			0xE000...0xF000 => {
+				match word & VALUE_MASK {
+					0x9E => {
+						OpCode::SkipKeyPressed(register)
+					},
+
+					0xA1 => {
+						OpCode::SkipKeyNotPressed(register)
+					},
+
+					_ => {
+						OpCode::Unknown
+					}
+				}
+			},
+
 			0xF000...0xFFFF => {
 				match word & VALUE_MASK {
 					0x15 => {
@@ -292,6 +340,10 @@ impl From<Word> for OpCode {
 
 					0x18 => {
 						OpCode::SetSoundTimer(register)
+					},
+
+					0x0A => {
+						OpCode::WaitKeyPress(register)
 					},
 
 					_ => {
