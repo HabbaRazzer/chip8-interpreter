@@ -175,18 +175,16 @@ impl OpCode {
 			},
 
 			&OpCode::WaitKeyPress(register) => {
-				// TODO: This might not grab the most recently pushed key due to the way I check
-				//   for each index here. It is possible that a key is pushed in an already checked
-				//   index before a key is pushed in an index yet to be checked. In this way the
-				//   key that was pressed second will be stored.
-				loop {
-					for (index, is_pressed) in system.keys.iter().enumerate() {
-						if *is_pressed {
-							system.registers[register] = index as u8;
-							break;
-						}
-					}
-				}
+                system.stop();
+                loop {
+                    // Will grab the last key pressed since execution of system has stopped!
+                    let (key, is_new) = system.last_key_pressed;
+                    if is_new {
+                        system.registers[register] = key;
+                        break;
+                    }
+                }
+                system.start();
 			},
 
 			&OpCode::SkipKeyPressed(register) => {
