@@ -13,6 +13,7 @@ const STACK_SIZE: usize = 48;
 const NUM_KEYS: usize = 16;
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct System {
     memory: Vec<Byte>,
     registers: [Byte; NUM_REGISTERS],
@@ -22,11 +23,12 @@ pub struct System {
     sp: Byte,
     delay_timer: Byte,
     sound_timer: Byte,
-    keys: Vec<Byte>,
+    keys: Vec<bool>,
 }
 
 #[allow(dead_code)]
 impl System{
+    /// Creates a new System.
     pub fn new() -> Self {
         System {
             memory: vec![0; NUM_BYTES],
@@ -37,10 +39,11 @@ impl System{
             sp: 0,
             delay_timer: 0,
             sound_timer: 0,
-            keys: vec![0; NUM_KEYS],
+            keys: vec![false; NUM_KEYS],
         }
     }
 
+    /// Creates a new System, given a path to a Chip8 rom to be loaded.
     pub fn from_rom(path: &str) -> Self {
         let mut system = System {
             memory: vec![0; NUM_BYTES],
@@ -51,7 +54,7 @@ impl System{
             sp: 0,
             delay_timer: 0,
             sound_timer: 0,
-            keys: vec![0; NUM_KEYS],
+            keys: vec![false; NUM_KEYS],
         };
 
         let mut handle = File::open(path).expect("File not found!");
@@ -64,16 +67,21 @@ impl System{
         system
     }
 
-    /** Index into system memory at address and return word located there. */
+    /// Index into system memory at address and return word located there.
     pub fn read_word(&self, address: usize) -> Word {
         let left = self.memory[address] as Word;
         let right = self.memory[address + 1] as Word;
         (left << 8) | right
     }
 
-    /** Increment the program counter. */
+    /// Increment the program counter for this system.
     pub fn increment_pc(&mut self) {
         self.pc += 2;
+    }
+
+    /// Set key at specified index.
+    pub fn set_key(&mut self, index: usize) {
+        self.keys[index] = true;
     }
 }
 
